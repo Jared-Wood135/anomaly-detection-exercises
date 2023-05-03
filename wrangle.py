@@ -39,6 +39,7 @@ import numpy as np
 import pandas as pd
 from sklearn.model_selection import train_test_split
 import os
+import env
 
 # =======================================================================================================
 # Imports END
@@ -48,15 +49,24 @@ import os
 
 def acquire():
     '''
-    Obtains the vanilla version of the mass_shooters dataframe
+    Obtains the vanilla version of the logs dataframe from the codeup SQL server...
+    REQUIRES 'env.py' file with working user, password connection
 
     INPUT:
     NONE
 
     OUTPUT:
-    mass_shooters = pandas dataframe
+    logs = pandas dataframe
     '''
-    print('Acquire dat shit!')
+    url = env.get_db_url('logs')
+    query = '''
+        SELECT
+            *
+        FROM
+            api_access
+        '''
+    logs = pd.read_sql(query, url)
+    return logs
 
 # =======================================================================================================
 # acquire END
@@ -64,22 +74,42 @@ def acquire():
 # prepare START
 # =======================================================================================================
 
+def parse_log_entry(entry):
+    '''
+    Function specifically for preparing the logs dataframe from the codeup SQL server.
+    '''
+    parts = entry.split()
+    output = {}
+    output['ip'] = parts[0]
+    output['timestamp'] = parts[3][1:].replace(':', ' ', 1)
+    output['request_method'] = parts[5][1:]
+    output['request_path'] = parts[6]
+    output['http_version'] = parts[7][:-1]
+    output['status_code'] = parts[8]
+    output['size'] = int(parts[9])
+    output['user_agent'] = ' '.join(parts[11:]).replace('"', '')
+    return pd.Series(output)
+
 def prepare():
     '''
-    Takes in the vanilla mass_shooters dataframe and returns a cleaned version that is ready 
-    for exploration and further analysis
+    Takes in the vanilla logs dataframe from the codeup SQL server and returns a cleaned 
+    version that is ready for exploration and further analysis
 
     INPUT:
     NONE
 
     OUTPUT:
     .csv = ONLY IF FILE NONEXISTANT
-    prepped_mass_shooters = pandas dataframe of the prepared mass_shooters dataframe
+    logs = pandas dataframe of the prepared logs dataframe
     '''
-    if os.path.exists('mass_shooters.csv'):
-        print('Prep dat shit!')
+    if os.path.exists('logs.csv'):
+        logs = pd.read_csv('logs.csv', index_col=0)
+        return logs
     else:
-        print('Prep dat shit!')
+        logs = acquire()
+        logs = logs.entry.apply(parse_log_entry)
+        logs.to_csv('logs.csv')
+        return logs
 
 # =======================================================================================================
 # prepare END
