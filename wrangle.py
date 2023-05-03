@@ -11,9 +11,11 @@
 6. split
 7. scale
 8. sample_dataframe
-9. remove_outliers
-10. drop_nullpct
-11. check_nulls
+9. remove_outliers_tukey
+10. find_outliers_tukey
+11. find_outliers_sigma
+12. drop_nullpct
+13. check_nulls
 '''
 
 # =======================================================================================================
@@ -204,11 +206,11 @@ def sample_dataframe(train, validate, test):
 
 # =======================================================================================================
 # sample_dataframe END
-# sample_dataframe TO remove_outliers
-# remove_outliers START
+# sample_dataframe TO remove_outliers_tukey
+# remove_outliers_tukey START
 # =======================================================================================================
 
-def remove_outliers(df, col_list, k=1.5):
+def remove_outliers_tukey(df, col_list, k=1.5):
     '''
     Remove outliers from a dataframe based on a list of columns using the tukey method and then
     returns a single dataframe with the outliers removed
@@ -232,8 +234,78 @@ def remove_outliers(df, col_list, k=1.5):
     return df
 
 # =======================================================================================================
-# remove_outliers END
-# remove_outliers TO drop_nullpct
+# remove_outliers_tukey END
+# remove_outliers_tukey TO find_outliers_tukey
+# find_outliers_tukey START
+# =======================================================================================================
+
+def find_outliers_tukey(df, col_list, k=1.5):
+    '''
+    Find outliers from a dataframe based on a list of columns using the tukey method and then
+    returns all of the values identifed as outliers
+
+    INPUT:
+    df = pandas dataframe
+    col_list = List of columns that you want outliers removed
+    k = Defines range for fences, default/normal is 1.5, 3 is more extreme outliers
+
+    OUTPUT:
+    NONE
+    '''
+    for col in col_list:
+        lower_vals = []
+        upper_vals = []
+        q1 = df[col].quantile(0.25)
+        q3 = df[col].quantile(0.75)
+        iqr = q3 - q1
+        lower_fence = q1 - iqr * k
+        upper_fence = q3 + iqr * k
+        for val in df[col]:
+            if val < lower_fence:
+                lower_vals.append(val)
+            elif val > upper_fence:
+                upper_vals.append(val)
+        print(f'\033[35m =========={col} // k={k}==========\033[0m')
+        print(f'\033[32mValues < {lower_fence:.2f}: {len(lower_vals)} Values\033[0m')
+        print(lower_vals)
+        print(f'\n\033[32mValues > {upper_fence:.2f}: {len(upper_vals)} Values\033[0m')
+        print(upper_vals)
+        print(f'\n')
+
+# =======================================================================================================
+# find_outliers_tukey END
+# find_outliers_tukey TO find_outliers_sigma
+# find_outliers_sigma START
+# =======================================================================================================
+
+def find_outliers_sigma(df, col_list, sigma=2):
+    '''
+    Find outliers from a dataframe based on a list of columns using the three sigma rule and then
+    returns all of the values identifed as outliers
+
+    INPUT:
+    df = pandas dataframe
+    col_list = List of columns that you want outliers removed
+    sigma = How many z-scores a value must at least be to identify as an outlier
+
+    OUTPUT:
+    NONE
+    '''
+    for col in col_list:
+        mean = df[col].mean()
+        std = df[col].std()
+        z_scores = ((df[col] - mean) / std)
+        outliers = df[col][z_scores.abs() >= sigma]
+        print(f'\033[35m =========={col} // sigma={sigma}==========\033[0m')
+        print(f'\033[32mMEAN:\033[0m {mean:.2f}')
+        print(f'\033[32mSTD:\033[0m {std:.2f}')
+        print(f'\033[32mOutliers:\033[0m {len(outliers)}')
+        print(outliers)
+        print(f'\n')
+
+# =======================================================================================================
+# find_outliers_sigma END
+# find_outliers_sigma TO drop_nullpct
 # drop_nullpct START
 # =======================================================================================================
 
