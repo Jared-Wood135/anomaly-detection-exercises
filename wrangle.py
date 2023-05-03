@@ -5,15 +5,15 @@
 '''
 1. Orientation
 2. Imports
-3. acquire_zillow
-4. prepare_zillow
-5. wrangle_zillow
-6. null_sum
-7. drop_null
-8. split
-9. scale
-10. sample_dataframe
-11. remove_outliers
+3. acquire
+4. prepare
+5. wrangle
+6. split
+7. scale
+8. sample_dataframe
+9. remove_outliers
+10. drop_nullpct
+11. check_nulls
 '''
 
 # =======================================================================================================
@@ -23,7 +23,8 @@
 # =======================================================================================================
 
 '''
-The purpose of this file is to create functions for the clustering machine learning process.
+The purpose of this file is to create functions for both the acquire & preparation phase of the data
+science pipeline or also known as 'wrangling' the data...
 '''
 
 # =======================================================================================================
@@ -34,200 +35,101 @@ The purpose of this file is to create functions for the clustering machine learn
 
 import numpy as np
 import pandas as pd
-import matplotlib.pyplot as plt
-import seaborn as sns
-from scipy import stats
 from sklearn.model_selection import train_test_split
-from sklearn.preprocessing import MinMaxScaler, StandardScaler, RobustScaler, QuantileTransformer
 import os
-import env
 
 # =======================================================================================================
 # Imports END
-# Imports TO acquire_zillow
-# acquire_zillow START
+# Imports TO acquire
+# acquire START
 # =======================================================================================================
 
-def acquire_zillow():
+def acquire():
     '''
-    Obtains the vanilla version of zillow dataframe.
-    '''
-    query = '''
-            SELECT
-                *
-            FROM 
-                (SELECT 
-                    parcelid, 
-                    logerror, 
-                    MAX(transactiondate) AS maxtransactiondate 
-                FROM 
-                    predictions_2017 
-                WHERE 
-                    transactiondate LIKE %s 
-                GROUP BY 
-                    parcelid, 
-                    logerror) AS A
-                LEFT JOIN properties_2017 USING(parcelid)
-                LEFT JOIN airconditioningtype USING(airconditioningtypeid)
-                LEFT JOIN architecturalstyletype USING(architecturalstyletypeid)
-                LEFT JOIN buildingclasstype USING(buildingclasstypeid)
-                LEFT JOIN heatingorsystemtype USING(heatingorsystemtypeid)
-                LEFT JOIN propertylandusetype USING(propertylandusetypeid)
-                LEFT JOIN storytype USING(storytypeid)
-                LEFT JOIN typeconstructiontype USING(typeconstructiontypeid)
-    '''
-    params = ('2017%', )
-    url = env.get_db_url('zillow')
-    zillow = pd.read_sql(query, url, params=params)
-    return zillow
-
-# =======================================================================================================
-# acquire_zillow END
-# acquire_zillow TO prepare_zillow
-# prepare_zillow START
-# =======================================================================================================
-
-def prepare_zillow():
-    '''
-    Takes the acquired zillow function and runs a set of prepatory calls for exploration.
+    Obtains the vanilla version of the mass_shooters dataframe
 
     INPUT:
     NONE
 
     OUTPUT:
-    zillow = pandas dataframe with prepared zillow data.
+    mass_shooters = pandas dataframe
     '''
-    zillow = acquire_zillow()
-    zillow.dropna(subset=['latitude', 'longitude'], inplace=True)
-    zillow = zillow[zillow.propertylandusedesc == 'Single Family Residential']
-    zillow = drop_nulls(zillow, 0.25)
-    drop_cols = [
-        'propertylandusetypeid',
-        'id',
-        'calculatedbathnbr',
-        'finishedsquarefeet12',
-        'propertycountylandusecode',
-        'rawcensustractandblock',
-        'regionidcity',
-        'regionidcounty',
-        'regionidzip',
-        'censustractandblock'
-        ]
-    zillow = zillow.drop(columns=drop_cols)
-    mean_cols = [
-        'calculatedfinishedsquarefeet',
-        'fullbathcnt',
-        'lotsizesquarefeet',
-        'structuretaxvaluedollarcnt',
-        'taxvaluedollarcnt',
-        'landtaxvaluedollarcnt',
-        'taxamount'
-        ]
-    mode_cols = [
-        'yearbuilt'
-        ]
-    for col in mean_cols:
-        zillow[col] = zillow[col].fillna(zillow[col].mean())
-    for col in mode_cols:
-        zillow[col] = zillow[col].fillna(zillow[col].mode()[0])
-    return zillow
+    print('Acquire dat shit!')
 
 # =======================================================================================================
-# prepare_zillow END
-# prepare_zillow TO wrangle_zillow
-# wrangle_zillow START
+# acquire END
+# acquire TO prepare
+# prepare START
 # =======================================================================================================
 
-def wrangle_zillow():
+def prepare():
     '''
-    Acquires and prepares the zillow dataset then creates a .csv file if one does not exist and
-    finally splits the dataframe.
+    Takes in the vanilla mass_shooters dataframe and returns a cleaned version that is ready 
+    for exploration and further analysis
 
     INPUT:
     NONE
 
     OUTPUT:
-    zillow.csv = .csv file for more expedient usage
-    train = train version of the prepped zillow dataframe
-    validate = validate version of the prepped zillow dataframe
-    test = test version of the prepped zillow dataframe
+    .csv = ONLY IF FILE NONEXISTANT
+    prepped_mass_shooters = pandas dataframe of the prepared mass_shooters dataframe
     '''
-    if os.path.exists('zillow.csv'):
-        zillow = pd.read_csv('zillow.csv', index_col=0)
-        train, validate, test = split(zillow)
+    if os.path.exists('mass_shooters.csv'):
+        print('Prep dat shit!')
+    else:
+        print('Prep dat shit!')
+
+# =======================================================================================================
+# prepare END
+# prepare TO wrangle
+# wrangle START
+# =======================================================================================================
+
+def wrangle():
+    '''
+    Function that acquires, prepares, and splits the mass_shooters dataframe for use as well as 
+    creating a csv.
+
+    INPUT:
+    NONE
+
+    OUTPUT:
+    .csv = ONLY IF FILE NONEXISTANT
+    train = pandas dataframe of training set for mass_shooter data
+    validate = pandas dataframe of validation set for mass_shooter data
+    test = pandas dataframe of testing set for mass_shooter data
+    '''
+    if os.path.exists('mass_shooters.csv'):
+        mass_shooters = pd.read_csv('mass_shooters.csv', index_col=0)
+        train, validate, test = split(mass_shooters, stratify='shooter_volatility')
         return train, validate, test
     else:
-        zillow = prepare_zillow()
-        zillow.to_csv('zillow.csv')
-        train, validate, test = split(zillow)
+        mass_shooters = prepare()
+        mass_shooters.to_csv('mass_shooters.csv')
+        train, validate, test = split(mass_shooters, stratify='shooter_volatility')
         return train, validate, test
-
-# =======================================================================================================
-# wrangle_mall END
-# wrangle_mall TO null_sum
-# null_sum START
-# =======================================================================================================
-
-def null_sum(df):
-    '''
-    Takes in a dataframe and returns a dataframe of the summarized nulls for each column.
     
-    INPUT:
-    df = pandas dataframe
-    
-    OUTPUT:
-    nulls_df = pandas dataframe with summarized nulls of inputted dataframe
-    '''
-    df_features = df.columns.to_list()
-    df_nullcnt = df.isna().sum().to_list()
-    df_nullpct = round((df.isna().sum() / df.shape[0]), 4).to_list()
-    temp_dict = {
-    'feature_name' : df_features,
-    'null_cnt' : df_nullcnt,
-    'null_pct' : df_nullpct
-    }
-    nulls_df = pd.DataFrame(temp_dict).set_index('feature_name')
-    return nulls_df
-
 # =======================================================================================================
-# null_sum END
-# null_sum TO drop_nulls
-# drop_nulls START
-# =======================================================================================================
-
-def drop_nulls(df, percent):
-    '''
-    Takes in a dataframe and a percent cutoff to return a dataframe with all the columns that are within the cutoff percentage.
-    
-    INPUT:
-    df = pandas dataframe
-    percent = Null percent cutoff. (0.00)
-    
-    OUTPUT:
-    new_df = pandas dataframe with all columns that are within the cutoff percentage.
-    '''
-    original_cols = df.columns.to_list()
-    drop_cols = []
-    for col in original_cols:
-        null_pct = df[col].isna().sum() / df.shape[0]
-        if null_pct > percent:
-            drop_cols.append(col)
-    new_df = df.drop(columns=drop_cols)
-    return new_df
-
-# =======================================================================================================
-# drop_nulls END
-# drop_nulls TO split
+# wrangle END
+# wrangle TO split
 # split START
 # =======================================================================================================
 
-def split(df):
+def split(df, stratify=None):
     '''
     Takes a dataframe and splits the data into a train, validate and test datasets
+
+    INPUT:
+    df = pandas dataframe to be split into
+    stratify = Splits data with specific columns in consideration
+
+    OUTPUT:
+    train = pandas dataframe with 70% of original dataframe
+    validate = pandas dataframe with 20% of original dataframe
+    test = pandas dataframe with 10% of original dataframe
     '''
-    train_val, test = train_test_split(df, train_size=0.8, random_state=1349)
-    train, validate = train_test_split(train_val, train_size=0.7, random_state=1349)
-    print(f"train.shape:{train.shape}\nvalidate.shape:{validate.shape}\ntest.shape:{test.shape}")
+    train_val, test = train_test_split(df, train_size=0.9, random_state=1349, stratify=df[stratify])
+    train, validate = train_test_split(train_val, train_size=0.778, random_state=1349, stratify=train_val[stratify])
     return train, validate, test
 
 
@@ -239,8 +141,20 @@ def split(df):
 
 def scale(train, validate, test, cols, scaler):
     '''
-    Takes in a train, validate, test and returns the dataframes,
-    but scaled using the 'StandardScaler()'
+    Takes in a train, validate, test dataframe and returns the dataframes scaled with the scaler
+    of your choice
+
+    INPUT:
+    train = pandas dataframe that is meant for training your machine learning model
+    validate = pandas dataframe that is meant for validating your machine learning model
+    test = pandas dataframe that is meant for testing your machine learning model
+    cols = List of column names that you want to be scaled
+    scaler = Scaler that you want to scale columns with like 'MinMaxScaler()', 'StandardScaler()', etc.
+
+    OUTPUT:
+    new_train = pandas dataframe of scaled version of inputted train dataframe
+    new_validate = pandas dataframe of scaled version of inputted validate dataframe
+    new_test = pandas dataframe of scaled version of inputted test dataframe
     '''
     original_train = train.copy()
     original_validate = validate.copy()
@@ -296,8 +210,16 @@ def sample_dataframe(train, validate, test):
 
 def remove_outliers(df, col_list, k=1.5):
     '''
-    remove outliers from a dataframe based on a list of columns using the tukey method
-    returns a single dataframe with outliers removed
+    Remove outliers from a dataframe based on a list of columns using the tukey method and then
+    returns a single dataframe with the outliers removed
+
+    INPUT:
+    df = pandas dataframe
+    col_list = List of columns that you want outliers removed
+    k = Defines range for fences, default/normal is 1.5, 3 is more extreme outliers
+
+    OUTPUT:
+    df = pandas dataframe with outliers removed
     '''
     col_qs = {}
     for col in col_list:
@@ -311,4 +233,59 @@ def remove_outliers(df, col_list, k=1.5):
 
 # =======================================================================================================
 # remove_outliers END
+# remove_outliers TO drop_nullpct
+# drop_nullpct START
+# =======================================================================================================
+
+def drop_nullpct(df, percent_cutoff):
+    '''
+    Takes in a dataframe and a percent_cutoff of nulls to drop a column on
+    and returns the new dataframe and a dictionary of dropped columns and their pct...
+    
+    INPUT:
+    df = pandas dataframe
+    percent_cutoff = Null percent cutoff amount
+    
+    OUTPUT:
+    new_df = pandas dataframe with dropped columns
+    drop_null_pct_dict = dict of column names dropped and pcts
+    '''
+    drop_null_pct_dict = {
+        'column_name' : [],
+        'percent_null' : []
+    }
+    for col in df:
+        pct = df[col].isna().sum() / df.shape[0]
+        if pct > 0.20:
+            df = df.drop(columns=col)
+            drop_null_pct_dict['column_name'].append(col)
+            drop_null_pct_dict['percent_null'].append(pct)
+    new_df = df
+    return new_df, drop_null_pct_dict
+
+# =======================================================================================================
+# drop_nullpct END
+# drop_nullpct TO check_nulls
+# check_nulls START
+# =======================================================================================================
+
+def check_nulls(df):
+    '''
+    Takes a dataframe and returns a list of columns that has at least one null value
+    
+    INPUT:
+    df = pandas dataframe
+    
+    OUTPUT:
+    has_nulls = List of column names with at least one null
+    '''
+    has_nulls = []
+    for col in df:
+        nulls = df[col].isna().sum()
+        if nulls > 0:
+            has_nulls.append(col)
+    return has_nulls
+
+# =======================================================================================================
+# check_nulls END
 # =======================================================================================================
