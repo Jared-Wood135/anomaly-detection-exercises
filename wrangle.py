@@ -16,6 +16,7 @@
 11. find_outliers_sigma
 12. drop_nullpct
 13. check_nulls
+14. acquire_curriculum_logs
 '''
 
 # =======================================================================================================
@@ -390,4 +391,38 @@ def check_nulls(df):
 
 # =======================================================================================================
 # check_nulls END
+# check_nulls TO acquire_curriculum_logs
+# acquire_curriculum_logs START
+# =======================================================================================================
+
+def acquire_curriculum_logs():
+    '''
+    Acquires the vanilla version of everything joined together from the codeup SQL database
+    'curriculum_logs'
+
+    INPUT:
+    NONE
+
+    OUTPUT:
+    curriculum_logs.csv = .csv created ONLY IF NONEXISTANT
+    curriculum_logs = Pandas dataframe with vanilla data of everything joined together
+    '''
+    if os.path.exists('curriculum_logs.csv'):
+        curriculum_logs = pd.read_csv('curriculum_logs.csv', index_col=0)
+        return curriculum_logs
+    else:
+        url = env.get_db_url('curriculum_logs')
+        query = '''
+        SELECT
+            *
+        FROM
+            logs
+            LEFT JOIN cohorts ON logs.cohort_id = cohorts.id
+        '''
+        curriculum_logs = pd.read_sql(query, url)
+        curriculum_logs.to_csv('curriculum_logs.csv')
+        return curriculum_logs
+
+# =======================================================================================================
+# acquire_curriculum_logs END
 # =======================================================================================================
