@@ -404,25 +404,152 @@ def acquire_curriculum_logs():
     NONE
 
     OUTPUT:
-    curriculum_logs.csv = .csv created ONLY IF NONEXISTANT
-    curriculum_logs = Pandas dataframe with vanilla data of everything joined together
+    acquire_curriculum_logs = Pandas dataframe with vanilla data of everything joined together
     '''
-    if os.path.exists('curriculum_logs.csv'):
-        curriculum_logs = pd.read_csv('curriculum_logs.csv', index_col=0)
-        return curriculum_logs
-    else:
-        url = env.get_db_url('curriculum_logs')
-        query = '''
-        SELECT
-            *
-        FROM
-            logs
-            LEFT JOIN cohorts ON logs.cohort_id = cohorts.id
-        '''
-        curriculum_logs = pd.read_sql(query, url)
-        curriculum_logs.to_csv('curriculum_logs.csv')
-        return curriculum_logs
+    url = env.get_db_url('curriculum_logs')
+    query = '''
+    SELECT
+        *
+    FROM
+        logs
+        LEFT JOIN cohorts ON logs.cohort_id = cohorts.id
+    '''
+    acquire_curriculum_logs = pd.read_sql(query, url)
+    return acquire_curriculum_logs
 
 # =======================================================================================================
 # acquire_curriculum_logs END
+# acquire_curriculum_logs TO prepare_curriculum_logs
+# prepare_curriculum_logs
+# =======================================================================================================
+
+def prepare_curriculum_logs():
+    '''
+    Acquires the vanilla version of the curriculum logs and gives the prepared version of the
+    curriculum logs dataframe
+
+    INPUT:
+    NONE
+
+    OUTPUT:
+    prepped_curriculum_logs = Pandas dataframe of the prepared curriculum logs dataframe
+    '''
+    curr_logs = acquire_curriculum_logs()
+    curr_logs['entry_datetime'] = pd.to_datetime(curr_logs.date + ' ' + curr_logs.time)
+    curr_logs.set_index(curr_logs.entry_datetime, inplace=True)
+    curr_logs.drop(columns=['date', 'time', 'id', 'slack', 'entry_datetime', 'created_at', 'updated_at', 'deleted_at'], inplace=True)
+    curr_logs.path.fillna('None', inplace=True)
+    curr_logs.name.fillna('None', inplace=True)
+    curr_logs.cohort_id.fillna(999, inplace=True)
+    curr_logs.start_date.fillna('1999-12-31', inplace=True)
+    curr_logs.end_date.fillna('1999-12-31', inplace=True)
+    curr_logs.program_id = np.where(curr_logs.program_id == 2.0, 1.0, curr_logs.program_id)
+    curr_logs.program_id = np.where(curr_logs.program_id == 3.0, 2.0, curr_logs.program_id)
+    curr_logs.program_id = np.where(curr_logs.name == 'Staff', 3.0, curr_logs.program_id)
+    curr_logs.program_id = curr_logs.program_id.fillna(5)
+    curr_logs['program_name'] = np.where(curr_logs.program_id == 1.0, 'Web Development', 'None')
+    curr_logs.program_name = np.where(curr_logs.program_id == 2.0, 'Data Science', curr_logs.program_name)
+    curr_logs.program_name = np.where(curr_logs.program_id == 3.0, 'Staff', curr_logs.program_name)
+    curr_logs.program_name = np.where(curr_logs.program_id == 4.0, 'Unknown', curr_logs.program_name)
+    curr_logs.program_name = np.where(curr_logs.program_id == 5.0, 'Unassigned', curr_logs.program_name)
+    curr_logs.start_date = pd.to_datetime(curr_logs.start_date)
+    curr_logs.end_date = pd.to_datetime(curr_logs.end_date)
+    subject = []
+    lesson = []
+    for val in curr_logs.path:
+        splitted = val.split('/')
+        if len(splitted) == 1:
+            subject.append(splitted[0])
+            lesson.append('None')
+        elif len(splitted) == 2:
+            if splitted[0] == '':
+                subject.append('Home')
+                lesson.append('None')
+            else:
+                subject.append(splitted[0])
+                lesson.append(splitted[1])
+        elif len(splitted) == 3:
+            conditionals = ['content', 'appendix']
+            if splitted[0] not in conditionals:
+                subject.append(splitted[0])
+                lesson.append(splitted[1])
+            else:
+                subject.append(splitted[1])
+                lesson.append(splitted[2])
+        elif len(splitted) == 4:
+            if splitted[0] == 'appendix':
+                subject.append(splitted[2])
+                lesson.append(splitted[3])
+            elif splitted[0] == 'content':
+                subject.append(splitted[1])
+                lesson.append(splitted[2])
+            else:
+                subject.append(splitted[0])
+                lesson.append(splitted[1])
+        elif len(splitted) == 5:
+            subject.append(splitted[1])
+            lesson.append(splitted[2])
+        elif len(splitted) == 6:
+            if splitted[1] == 'appendix':
+                subject.append(splitted[2])
+                lesson.append(splitted[3])
+            else:
+                subject.append(splitted[1])
+                lesson.append(splitted[2])
+        elif len(splitted) == 7:
+            subject.append(splitted[2])
+            lesson.append(splitted[3])
+        elif len(splitted) == 8:
+            subject.append('Anomaly')
+            lesson.append('Anomaly')
+    curr_logs['subject'] = subject
+    curr_logs['lesson'] = lesson
+    curr_logs = curr_logs[['path',
+                           'subject',
+                           'lesson',
+                           'ip',
+                           'program_name',
+                           'program_id',
+                           'name',
+                           'cohort_id',
+                           'user_id',
+                           'start_date',
+                           'end_date']]
+    curr_logs.rename(columns={'subject' : 'path_subject',
+                              'lesson' : 'path_lesson',
+                              'name' : 'cohort_name',
+                              'start_date' : 'cohort_start_date',
+                              'end_date' : 'cohort_end_date'},
+                     inplace=True)
+    prepared_curriculum_logs = curr_logs
+    return prepared_curriculum_logs
+
+# =======================================================================================================
+# prepare_curriculum_logs END
+# prepare_curriculum_logs TO wrangle_curriculum_logs
+# wrangle_curriculum_logs
+# =======================================================================================================
+
+def wrangle_curriculum_logs():
+    '''
+    Acquires the vanilla version of the curriculum logs, prepares it, then creates the .csv file if it
+    doesn't already exist and returns the prepared version of the dataframe
+
+    INPUT:
+    NONE
+
+    OUTPUT:
+    curriculum_logs.csv = .csv file ONLY IF NON-EXISTANT
+    wrangled_curriculum_logs = Pandas dataframe of the prepared curriculum logs dataframe
+    '''
+    if os.path.exists('curriculum_logs.csv'):
+        wrangled_curriculum_logs = pd.read_csv('curriculum_logs.csv', index_col=0)
+        return wrangled_curriculum_logs
+    else:
+        wrangled_curriculum_logs = prepare_curriculum_logs()
+        wrangled_curriculum_logs.to_csv('curriculum_logs.csv')
+        return wrangled_curriculum_logs
+
+# =======================================================================================================
+# wrangle_curriculum_logs END
 # =======================================================================================================
