@@ -544,6 +544,9 @@ def wrangle_curriculum_logs():
     '''
     if os.path.exists('curriculum_logs.csv'):
         wrangled_curriculum_logs = pd.read_csv('curriculum_logs.csv', index_col=0)
+        wrangled_curriculum_logs.index = pd.to_datetime(wrangled_curriculum_logs.index)
+        wrangled_curriculum_logs.cohort_start_date = pd.to_datetime(wrangled_curriculum_logs.cohort_start_date)
+        wrangled_curriculum_logs.cohort_end_date = pd.to_datetime(wrangled_curriculum_logs.cohort_end_date)
         return wrangled_curriculum_logs
     else:
         wrangled_curriculum_logs = prepare_curriculum_logs()
